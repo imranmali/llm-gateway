@@ -34,9 +34,9 @@
 
 ## 6. Delivery, docs and licensing
 
-- [ ] 6.1 Add multi-stage non-root `Dockerfile`, `.dockerignore` and `docker-compose.yml`; verify `docker build` succeeds and the container answers `/healthz`
-- [ ] 6.2 Add `.github/workflows/ci.yml` (lint, type-check, test matrix + coverage, OpenSpec validation, Docker smoke test) and verify it passes on the pull request
-- [ ] 6.3 Add `.github/workflows/release.yml` (GHCR publish on `main` and `v*` tags, GitHub release on tags) plus Dependabot config and PR template; verify workflow syntax with the CI run
+- [x] 6.1 Add multi-stage non-root `Dockerfile`, `.dockerignore` and `docker-compose.yml`; verify `docker build` succeeds and the container answers `/healthz`
+- [x] 6.2 Add `.github/workflows/ci.yml` (lint, type-check, test matrix + coverage, OpenSpec validation, Docker smoke test) and verify it passes on the pull request
+- [x] 6.3 Add `.github/workflows/release.yml` (GHCR publish on `main` and `v*` tags, GitHub release on tags) plus Dependabot config and PR template; verify workflow syntax with the CI run
 - [x] 6.4 Write `README.md` (features, quick start, configuration reference, API, metrics, architecture, development, deployment), `CONTRIBUTING.md` and `CHANGELOG.md`; confirm `LICENSE` (MIT) is referenced and README commands run as written
 
 ## Workflow follow-up

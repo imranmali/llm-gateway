@@ -20,6 +20,7 @@ _STANDARD_ATTRS = frozenset(vars(logging.LogRecord("", logging.INFO, "", 0, "", 
     "asctime",
     "request_id",
     "taskName",
+    "color_message",  # uvicorn's ANSI-coloured duplicate of ``message``
 }
 
 

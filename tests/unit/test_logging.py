@@ -196,3 +196,11 @@ def test_configure_logging_keeps_foreign_handlers() -> None:
     assert foreign in root.handlers
     assert len(_ours(root)) == 1
     assert root.level == logging.INFO
+
+
+def test_uvicorn_color_message_is_dropped() -> None:
+    record = logging.LogRecord("uvicorn.error", logging.INFO, __file__, 1, "Started", None, None)
+    record.color_message = "\x1b[36mStarted\x1b[0m"
+    payload = json.loads(JsonFormatter().format(record))
+    assert "color_message" not in payload
+    assert payload["message"] == "Started"

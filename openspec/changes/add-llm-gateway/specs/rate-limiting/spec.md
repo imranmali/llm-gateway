@@ -38,7 +38,7 @@ Rate limit state SHALL be tracked independently per client API key so that one c
 - **THEN** client B's request is processed
 
 ### Requirement: Rate limit response headers
-Every `/v1/chat/completions` response, including `429` responses, SHALL include `X-RateLimit-Limit-Requests`, `X-RateLimit-Remaining-Requests`, `X-RateLimit-Limit-Tokens` and `X-RateLimit-Remaining-Tokens` headers for enforced limits. Every `429` response SHALL include a `Retry-After` header with the whole number of seconds (minimum 1) until the request would be admitted.
+Every `/v1/chat/completions` response to an authenticated client whose request body passed validation, including `429` and upstream error responses, SHALL include `X-RateLimit-Limit-Requests`, `X-RateLimit-Remaining-Requests`, `X-RateLimit-Limit-Tokens` and `X-RateLimit-Remaining-Tokens` headers for enforced limits. Every `429` response SHALL include a `Retry-After` header with the whole number of seconds (minimum 1) until the request would be admitted.
 
 #### Scenario: Retry-After on rejection
 - **WHEN** a request is rejected for exceeding a rate limit

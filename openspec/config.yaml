@@ -1,0 +1,22 @@
+schema: spec-driven
+
+context: |
+  Project: llm-gateway — an OpenAI-compatible HTTP gateway in front of multiple LLM
+  providers (OpenAI-compatible APIs, Anthropic, and a deterministic mock provider).
+  Stack: Python >= 3.11, FastAPI, httpx (async), pydantic v2 / pydantic-settings,
+  prometheus-client. Packaging via pyproject.toml (hatchling), src/ layout,
+  package name `llm_gateway`.
+  Quality gates: ruff (lint + format), mypy (strict on src/), pytest with
+  pytest-asyncio; coverage must stay >= 85%. Tests must never call real
+  provider APIs — use httpx.MockTransport or the mock provider.
+  All runtime state (rate limits, circuit breakers) is in-process for v1; any
+  shared-state backend must sit behind an interface.
+  Configuration is a YAML file plus environment variables (prefix LLMGW_);
+  provider secrets come only from environment variables.
+
+rules:
+  proposal:
+    - State explicitly what is out of scope.
+  tasks:
+    - Group tasks by capability so they can be implemented by parallel agents.
+    - Every capability group must include its own test tasks.

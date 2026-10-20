@@ -2,9 +2,9 @@
 
 ## 1. Core scaffolding (sequential, before parallel groups)
 
-- [ ] 1.1 Create `pyproject.toml` (hatchling, src layout, runtime + dev dependencies, ruff/mypy/pytest/coverage config) and verify `pip install -e ".[dev]"` succeeds
-- [ ] 1.2 Implement `config.py`, `schemas.py`, `errors.py`, `events.py` per design D2/D3 and verify with unit tests in `tests/unit/test_config.py`, `tests/unit/test_schemas.py`
-- [ ] 1.3 Implement `providers/base.py` and `providers/mock.py` (deterministic content, configurable failure modes) and verify with `tests/unit/test_mock_provider.py`
+- [x] 1.1 Create `pyproject.toml` (hatchling, src layout, runtime + dev dependencies, ruff/mypy/pytest/coverage config) and verify `pip install -e ".[dev]"` succeeds
+- [x] 1.2 Implement `config.py`, `schemas.py`, `errors.py`, `events.py` per design D2/D3 and verify with unit tests in `tests/unit/test_config.py`, `tests/unit/test_schemas.py`
+- [x] 1.3 Implement `providers/base.py` and `providers/mock.py` (deterministic content, configurable failure modes) and verify with `tests/unit/test_mock_provider.py`
 
 ## 2. Rate limiting (parallel group A)
 

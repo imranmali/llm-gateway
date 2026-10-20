@@ -1,0 +1,64 @@
+# llm-gateway example configuration.
+# Point the gateway at this file with LLMGW_CONFIG=/path/to/config.yaml.
+# Secrets are NEVER stored here: reference environment variables by name instead.
+
+# Clients allowed to call /v1/*. Remove the list entirely to run unauthenticated
+# (every caller becomes the single "anonymous" client).
+clients:
+  - name: demo
+    key_env: LLMGW_DEMO_KEY          # export LLMGW_DEMO_KEY=sk-gw-demo
+    rate_limit:
+      requests_per_minute: 120
+      tokens_per_minute: 200000
+  # - name: batch-jobs
+  #   key_env: LLMGW_BATCH_KEY
+  #   rate_limit: { requests_per_minute: 30, tokens_per_minute: 0 }   # 0 = unlimited
+
+# Applied to clients without their own rate_limit (and to "anonymous").
+default_rate_limit:
+  requests_per_minute: 60
+  tokens_per_minute: 100000
+
+providers:
+  # Deterministic in-process providers: no network, great for demos and tests.
+  mock-primary:
+    type: mock
+  mock-flaky:
+    type: mock
+    fail_times: -1        # always fails -> demonstrates failover + circuit breaker
+    fail_status: 503
+
+  # Real providers (uncomment and export the referenced variables):
+  # openai:
+  #   type: openai
+  #   api_key_env: OPENAI_API_KEY
+  #   timeout_s: 30
+  # anthropic:
+  #   type: anthropic
+  #   api_key_env: ANTHROPIC_API_KEY
+  #   timeout_s: 60
+  # local-vllm:
+  #   type: openai                       # any OpenAI-compatible server
+  #   base_url: http://vllm:8000/v1
+
+routes:
+  - model: demo
+    targets:
+      - { provider: mock-flaky, model: flaky-1 }
+      - { provider: mock-primary, model: mock-1 }
+  - model: mock-model
+    targets:
+      - { provider: mock-primary, model: mock-1 }
+  # - model: smart
+  #   targets:
+  #     - { provider: openai, model: gpt-4o }
+  #     - { provider: anthropic, model: claude-sonnet-4-5 }
+
+routing:
+  max_attempts_per_target: 2
+  backoff_initial_s: 0.2
+  backoff_max_s: 2.0
+  circuit_breaker:
+    failure_threshold: 5
+    recovery_timeout_s: 30
+    half_open_max_calls: 1

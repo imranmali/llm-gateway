@@ -1,0 +1,26 @@
+# Local stack: gateway (mock providers by default) + Prometheus scraping /metrics.
+services:
+  gateway:
+    build: .
+    image: ghcr.io/imranmali/llm-gateway:local
+    ports:
+      - "8080:8080"
+    environment:
+      LLMGW_LOG_LEVEL: INFO
+      # Uncomment and set to route real traffic (see config.example.yaml):
+      # OPENAI_API_KEY: ${OPENAI_API_KEY}
+      # ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      LLMGW_DEMO_KEY: ${LLMGW_DEMO_KEY:-sk-gw-demo}
+    volumes:
+      - ./config.example.yaml:/etc/llm-gateway/config.yaml:ro
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - gateway

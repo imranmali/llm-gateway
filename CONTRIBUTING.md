@@ -41,8 +41,18 @@ Tests must never call real provider APIs — use the `mock` provider or
 ## Releases
 
 Merges to `main` publish `ghcr.io/imranmali/llm-gateway:edge` (and `sha-<sha>`).
-Tagging `vX.Y.Z` publishes semver tags plus `latest` and creates a GitHub
-release with generated notes. Update `CHANGELOG.md` before tagging.
+To release `X.Y.Z`:
+
+1. In a PR, set `version` in `pyproject.toml` and `__version__` in
+   `src/llm_gateway/__init__.py` to `X.Y.Z` and move the `[Unreleased]`
+   entries in `CHANGELOG.md` under `## [X.Y.Z] - <date>`.
+2. After it merges, run **Actions → Release → Run workflow** on `main` with
+   `version` = `X.Y.Z`. The run executes CI, refuses a version that doesn't
+   match `pyproject.toml`, lacks a CHANGELOG section or is already tagged, then
+   tags the commit `vX.Y.Z`, publishes the semver and `latest` image tags and
+   creates the GitHub release (CHANGELOG section plus generated notes).
+
+Pushing a `vX.Y.Z` tag directly triggers the same publish and release.
 
 ## License
 

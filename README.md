@@ -225,7 +225,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the branch, commit and OpenSpec workf
 | Workflow | Trigger | Jobs |
 |---|---|---|
 | [`ci.yml`](.github/workflows/ci.yml) | pull requests, manual, called by release | ruff, mypy, pytest on 3.11/3.12/3.13 with coverage gate, strict OpenSpec validation, Docker build + container smoke test |
-| [`release.yml`](.github/workflows/release.yml) | push to `main`, `v*.*.*` tags | runs CI, publishes `ghcr.io/imranmali/llm-gateway` (`edge`, `sha-*`, semver, `latest`), creates a GitHub release for tags, optional webhook deploy |
+| [`release.yml`](.github/workflows/release.yml) | push to `main`, `v*.*.*` tags, manual run with a `version` | runs CI, publishes `ghcr.io/imranmali/llm-gateway` (`edge`, `sha-*`, semver, `latest`), creates the tag and GitHub release for versioned runs, optional webhook deploy |
+
+To cut a release, bump `version` in `pyproject.toml` and `src/llm_gateway/__init__.py`,
+add a `## [X.Y.Z]` section to `CHANGELOG.md`, merge, then run **Actions → Release →
+Run workflow** on `main` with `version` = `X.Y.Z`. The run tests the commit, tags it
+`vX.Y.Z`, publishes the image and creates the GitHub release (CHANGELOG section plus
+generated notes). Pushing a `vX.Y.Z` tag yourself does the same.
 
 To enable automatic deployment, set the repository variable `DEPLOY_ENABLED=true`
 and the secret `DEPLOY_WEBHOOK_URL` (for example a Render, Railway or Coolify

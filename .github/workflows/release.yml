@@ -5,6 +5,14 @@ on:
     branches: [main]
     tags: ["v*.*.*"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: >-
+          Version to release from the selected branch's head, e.g. 0.1.0 (creates tag
+          v0.1.0). Must match pyproject.toml and have a CHANGELOG.md section. Leave empty
+          to only rebuild and publish the image.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -22,13 +30,56 @@ jobs:
     name: CI gate
     uses: ./.github/workflows/ci.yml
 
+  tag:
+    name: Create release tag
+    # Manual releases: tag the tested commit from inside the workflow. A tag pushed with
+    # GITHUB_TOKEN does not trigger a new run, so this run publishes and releases too.
+    if: github.event_name == 'workflow_dispatch' && inputs.version != ''
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: tag
+        name: Validate version and push tag
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::version must look like X.Y.Z (got '$VERSION')"; exit 1
+          fi
+          project_version=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          if [ "$VERSION" != "$project_version" ]; then
+            echo "::error::version $VERSION does not match pyproject.toml ($project_version)"; exit 1
+          fi
+          if ! grep -q "^## \[$VERSION\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [$VERSION]' section"; exit 1
+          fi
+          tag="v$VERSION"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+            echo "::error::tag $tag already exists"; exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" -m "$tag" "$GITHUB_SHA"
+          git push origin "refs/tags/$tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
   publish-image:
     name: Publish container image
-    needs: ci
+    needs: [ci, tag]
+    # `tag` is skipped for ordinary pushes; run unless something upstream failed.
+    if: ${{ !cancelled() && needs.ci.result == 'success' && needs.tag.result != 'failure' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    env:
+      RELEASE_TAG: ${{ needs.tag.outputs.tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
     outputs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
@@ -43,12 +94,13 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: latest=false
           tags: |
             type=edge,branch=main
             type=sha,prefix=sha-
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{version}},value=${{ env.RELEASE_TAG }},enable=${{ env.RELEASE_TAG != '' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ env.RELEASE_TAG }},enable=${{ env.RELEASE_TAG != '' }}
+            type=raw,value=latest,enable=${{ env.RELEASE_TAG != '' }}
       - id: build
         uses: docker/build-push-action@v6
         with:
@@ -61,24 +113,37 @@ jobs:
 
   github-release:
     name: GitHub release
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: publish-image
+    needs: [tag, publish-image]
+    if: >-
+      ${{ !cancelled() && needs.publish-image.result == 'success' &&
+      (needs.tag.outputs.tag != '' || startsWith(github.ref, 'refs/tags/v')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v5
-      - name: Create release with generated notes
+      - name: Create release from CHANGELOG with generated notes
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag
+          TAG: ${{ needs.tag.outputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          # Body = this version's CHANGELOG section; gh appends the generated notes.
+          awk -v v="$version" '
+            $0 ~ "^## \\[" v "\\]" { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          gh release create "$TAG" --verify-tag --title "$TAG" \
+            --notes-file notes.md --generate-notes
 
   deploy:
     name: Deploy (webhook)
     # Opt-in: set repository variable DEPLOY_ENABLED=true and secret DEPLOY_WEBHOOK_URL
     # (e.g. a Render/Railway/Coolify deploy hook) to roll out each published image.
-    if: vars.DEPLOY_ENABLED == 'true'
     needs: publish-image
+    if: ${{ !cancelled() && needs.publish-image.result == 'success' && vars.DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     environment: production
     steps:

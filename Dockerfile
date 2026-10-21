@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---- build stage: produce a wheel -------------------------------------------
-FROM python:3.12-slim AS build
+FROM python:3.15-slim AS build
 WORKDIR /src
 RUN pip install --no-cache-dir build==1.2.2
 COPY pyproject.toml README.md LICENSE ./
@@ -9,7 +9,7 @@ COPY src ./src
 RUN python -m build --wheel --outdir /dist
 
 # ---- runtime stage -----------------------------------------------------------
-FROM python:3.12-slim AS runtime
+FROM python:3.15-slim AS runtime
 
 LABEL org.opencontainers.image.title="llm-gateway" \
       org.opencontainers.image.description="OpenAI-compatible LLM gateway with rate limiting, fallback routing and observability" \

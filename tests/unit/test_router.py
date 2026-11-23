@@ -357,6 +357,43 @@ async def test_half_open_admits_limited_trials() -> None:
     assert h.router.breakers["a"].state == "closed"
 
 
+@pytest.mark.parametrize("late_outcome", ["success", "failure", "cancel"])
+async def test_old_request_cannot_decide_recovery_or_release_a_trial(late_outcome: str) -> None:
+    late_gate = asyncio.Event()
+    trial_gate = asyncio.Event()
+    failure = ProviderError.from_status("a", 503, "down")
+    primary = ScriptedProvider(
+        "a", [failure if late_outcome == "failure" else None, failure, None], gate=late_gate
+    )
+    h = Harness(make_config(threshold=1, max_attempts=1), {"a": primary, "b": MockProvider("b")})
+    late = asyncio.create_task(h.complete())
+    await asyncio.sleep(0)
+    primary.gate = None
+    assert (await h.complete()).provider == "b"
+    assert h.router.breakers["a"].state == "open"
+    h.clock.advance(30)
+    primary.gate = trial_gate
+    trial = asyncio.create_task(h.complete())
+    await asyncio.sleep(0)
+    try:
+        assert primary.calls == 3
+        if late_outcome == "cancel":
+            late.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await late
+        else:
+            late_gate.set()
+            assert (await late).provider == ("a" if late_outcome == "success" else "b")
+        assert h.router.breakers["a"].state == "half_open"
+        assert not h.router.breakers["a"].allow_request()
+    finally:
+        late_gate.set()
+        trial_gate.set()
+        await asyncio.gather(late, trial, return_exceptions=True)
+    assert (await trial).provider == "a"
+    assert h.router.breakers["a"].state == "closed"
+
+
 async def test_cancelled_trial_releases_slot() -> None:
     gate = asyncio.Event()
     a = ScriptedProvider("a", [ProviderError.from_status("a", 503, "down"), None])

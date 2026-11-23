@@ -49,6 +49,7 @@ class CircuitBreaker:
         self._observer: GatewayObserver = observer or NullObserver()
         self._state: CircuitState = "closed"
         self._failures = 0
+        self._generation = 0
         self._opened_at = 0.0
         self._trials_in_flight = 0
 
@@ -60,6 +61,11 @@ class CircuitBreaker:
         ):
             self._transition("half_open")
         return self._state
+
+    @property
+    def generation(self) -> int:
+        """Identify the circuit state that admitted an upstream attempt."""
+        return self._generation
 
     @property
     def consecutive_failures(self) -> int:
@@ -77,13 +83,17 @@ class CircuitBreaker:
             return True
         return False
 
-    def record_success(self) -> None:
+    def record_success(self, generation: int | None = None) -> None:
+        if generation is not None and generation != self._generation:
+            return
         self._failures = 0
         if self._state == "half_open":
             self._transition("closed")
 
-    def record_failure(self) -> None:
-        state = self.state
+    def record_failure(self, generation: int | None = None) -> None:
+        if generation is not None and generation != self._generation:
+            return
+        state = self._state
         if state == "half_open":
             self._open()
         elif state == "closed":
@@ -91,8 +101,10 @@ class CircuitBreaker:
             if self._failures >= self._config.failure_threshold:
                 self._open()
 
-    def release(self) -> None:
+    def release(self, generation: int | None = None) -> None:
         """Give back a half-open trial slot for a call that ended without an outcome."""
+        if generation is not None and generation != self._generation:
+            return
         if self._state == "half_open" and self._trials_in_flight > 0:
             self._trials_in_flight -= 1
 
@@ -102,6 +114,7 @@ class CircuitBreaker:
 
     def _transition(self, state: CircuitState) -> None:
         previous, self._state = self._state, state
+        self._generation += 1
         self._trials_in_flight = 0
         self._failures = 0
         log = logger.warning if state == "open" else logger.info
@@ -213,33 +226,34 @@ class Router:
         while True:
             made += 1
             tally.attempts += 1
+            generation = breaker.generation
             start = self._clock()
             try:
                 response = await provider.chat(request, target.model)
             except ProviderError as exc:
                 duration = self._clock() - start
                 if exc.client_error:
-                    breaker.record_success()
+                    breaker.record_success(generation)
                     self._attempt(target, "client_error", duration)
                     raise UpstreamBadRequestError(exc.message) from exc
-                breaker.record_failure()
+                breaker.record_failure(generation)
                 if exc.timeout:
                     tally.timeouts += 1
                 self._attempt(target, "timeout" if exc.timeout else "error", duration)
                 last = _describe(exc)
                 retryable = exc.retryable
             except asyncio.CancelledError:
-                breaker.release()
+                breaker.release(generation)
                 raise
             except Exception as exc:
                 duration = self._clock() - start
-                breaker.record_failure()
+                breaker.record_failure(generation)
                 self._attempt(target, "error", duration)
                 last = f"unexpected error ({type(exc).__name__})"
                 retryable = True
                 logger.warning("unexpected error from provider %s", target.provider, exc_info=True)
             else:
-                breaker.record_success()
+                breaker.record_success(generation)
                 self._attempt(target, "success", self._clock() - start)
                 self._observer.on_tokens(
                     provider=target.provider,

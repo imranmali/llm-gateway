@@ -22,23 +22,23 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
 ]
 dependencies = [
-    "fastapi>=0.162.0,<1",
+    "fastapi>=0.165.0,<1",
     "uvicorn[standard]>=0.54.0,<1",
     "httpx>=0.28.1,<1",
-    "pydantic>=2.14.2,<3",
-    "pydantic-settings>=2.16.2,<3",
-    "PyYAML>=6.0.3,<7",
+    "pydantic>=2.14.4,<3",
+    "pydantic-settings>=2.16.3,<3",
+    "PyYAML>=6.0.4,<7",
     "prometheus-client>=0.26.0,<1",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=9.2.0",
-    "pytest-asyncio>=1.4.1",
+    "pytest-asyncio>=1.5.0",
     "pytest-cov>=7.1.0",
-    "ruff>=0.17.3",
+    "ruff>=0.17.6",
     "mypy>=2.4.1",
-    "types-PyYAML>=6.0.12.20261030",
+    "types-PyYAML>=6.0.12.20261113",
 ]
 
 [project.scripts]
